@@ -1,4 +1,4 @@
-// Promises
+// Synchronous vs.Asynchronous JavaScript
 function f1() {
   console.log('f1');
 }
@@ -202,3 +202,136 @@ new Promise((resolve, reject) => {
 // 'f1'
 // 'f2'
 // 'f3'
+
+// JavaScript Promises
+let promise = new Promise(function(resolve, reject) {
+
+  // Resolve and reject are callback functions for the executor function to announce an outcome.
+  // Resolve method indicates successful completion of the task.
+  // You do not define the resolve and reject functions but JavaScript provides for you.
+  // You need to call them from the executor function.
+  setTimeout(function() {
+
+    // Reject method indicates an error.
+    reject(new Error('Jack fell down and broke his crown. And Jill came tumbling after.'))
+  }, 2000)
+  let value = 'water';
+  // Pretend a delay of 2 sec to fetch it!
+  setTimeout(function() {
+    // Ftched the water. Let's resolve the promise.
+    resolve('Hurray! Fetched the water.');
+  }, 2000);  
+});
+
+// Function to set up the handler to handle a promise result.
+// It is to inform the grand parents when the result is available.
+const grandParentsCooking = () => {
+  // The handler function to handle the resolved promise.
+  promise.then(function(result) {
+    // Fetched the water. Now grandparents can start the cooking
+    console.log(`cooking rice with the ${result}`);
+  });
+
+  promise.catch(function(error) {
+    console.log(`OMG ${error.message}`);
+  });
+}
+
+// Calling the function to activaye the set up.
+grandParentsCooking();
+
+promise.then(
+  (result) => {
+    console.log(result);
+  },
+  (error) => {
+    console.log(error);
+  }
+);
+
+let loading = true;
+loading && console.log('Loading...');
+
+// Getting the promise
+promise = getPromise();
+
+promise.finally(() => {
+  loading = false;
+  console.log(`Promise Settled and loading is ${loading}`);
+}).then((result) => {
+  console.log({result});
+});
+
+// Callbacks
+import {bigOak} from "./crow-tech";
+
+bigOak.readStorage("food caches", caches => {
+  let firstCache = caches[0];
+  bigOak.readStorage(firstCache, info => {
+    console.log(info)
+  });
+});
+
+bigOak.send("Cow Pasture", "note", "Let's caw loudly at 7PM",
+            () => console.log("Note delivered"));
+
+import {defineRequestType} from "./crow-tech";
+defineRequestType("note", (nest, content, source, done) => {
+  console.log(`${nest.name} received note: ${content}`);
+  done();
+});
+
+let fifteen = Promise.resolve(15);
+fifteen.then(value => console.log(`Got ${value}`));
+// -> Got 15
+
+function storage(nest, name) {
+  return new Promise(resolve => {
+    nest.readStorage(name, result => resolve(result))
+  });
+}
+
+storage(bigOak, "enemies")
+  .then(value => console.log("Got", value));
+
+new Promise((_, reject) = reject(new Error("Fail")))
+  .then(value => console.log("Handler 1"))
+  .catch(reason => {
+    console.log("Caught failure" + reason);
+    return "nothing";
+  })
+  .then(value => console.log("Handler 2", value));
+
+class Timeout extends Error {}
+
+function request(nest, target, type, content) {
+  return new Promise((resolve, reject) => {
+    let done = false;
+    function attempt(n) {
+      nest.send(target, type, content, (failed, value) => {
+        done = true;
+        if (failed) reject(failed);
+        else resolve(value);
+      });
+      setTimeout(() => {
+        if (done) return;
+        else if (n < 3) attempt(n + 1);
+        else reject(new Timeout("Timed out"));
+      }, 250);
+    }
+    attempt(1);
+  });
+}
+
+function requestType(name, handler) {
+  defineRequestType(name, (nest, content, source,
+                    callback) => {
+    try {
+      Promise.resolve(handler(nest, content, source))
+        .then(response => callback(null, response),
+              failure => callback(failure));
+    } catch (exception) {
+      callback(exception);
+    }
+  });
+}
